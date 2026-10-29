@@ -1,0 +1,10 @@
+# Agent orchestration
+langgraph>=0.2
+langchain-core>=0.3
+
+# OpenRouter exposes an OpenAI-compatible API, called through langchain-openai
+langchain-openai>=0.2
+openai>=1.40
+
+# Loads OPENROUTER_API_KEY from .env
+python-dotenv>=1.0
