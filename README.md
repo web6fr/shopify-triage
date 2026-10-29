@@ -78,7 +78,7 @@ SUP-48204  route=billing  expected=billing
 
 **Model in use:** `nvidia/nemotron-3.5-super-vl:free`, set by `OPENROUTER_MODEL` in `.env`.
 
-**Why I chose it:** _TODO — explain why you chose this free model._
+**Why I chose it:** I switched to `nvidia/nemotron-3.5-super-vl:free` because the provider behind `google/gemma-4-31b-it:free` kept refusing requests with 429 rate limits, and Nemotron is on OpenRouter's free list with tool-calling support, which the agent will need for the test set's `expected_tool_calls`.
 
 ### A phrase in Maria's message that could pull toward billing
 
