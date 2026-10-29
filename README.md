@@ -52,6 +52,42 @@ SUP-48213  route=orders  expected=orders
 
 **First run:** the route did not disagree. The first two attempts, with `google/gemma-4-31b-it:free`, returned no route at all: both failed with `OpenAIRateLimitError: Error code: 429 - Provider returned error` because the free model's provider was refusing requests. After switching `OPENROUTER_MODEL` to `nvidia/nemotron-3.5-super-vl:free`, the first run that returned a route is the one shown above, and it matched. No re-run or mismatch reasoning is needed.
 
+### Contrasting ticket (SUP-48204, Inês Carvalho, expected `billing`)
+
+Model: `nvidia/nemotron-3.5-super-vl:free`
+
+```
+$ .venv/bin/python triage.py SUP-48204
+SUP-48204  route=billing  expected=billing
+  Reason: The merchant is asking about a Shopify Payments payout marked as in transit that has not arrived in their bank account.
+```
+
+**Verify:** route `billing` == expected_route `billing` → ✅ match
+
+### Side by side
+
+| | Maria's ticket | Contrasting ticket |
+|---|---|---|
+| Ticket | SUP-48213, Maria Sousa | SUP-48204, Inês Carvalho |
+| Subject | shipping is broken since the weekend | payout? |
+| Expected route | orders | billing |
+| Model's route | **orders** ✅ | **billing** ✅ |
+| Reason | The merchant reports that shipping rates are incorrect for customer orders, with buyers in Europe charged the domestic Portugal rate and buyers in Portugal charged international rates. | The merchant is asking about a Shopify Payments payout marked as in transit that has not arrived in their bank account. |
+
+### Model choice
+
+**Model in use:** `nvidia/nemotron-3.5-super-vl:free`, set by `OPENROUTER_MODEL` in `.env`.
+
+**Why I chose it:** _TODO — explain why you chose this free model._
+
+### A phrase in Maria's message that could pull toward billing
+
+> "one customer from Braga paid €14,90 postage for a small mug that costs €4,50 to send inside portugal"
+
+The phrase is about a customer paying too much, with euro amounts, so a model could read it as a charge or refund question and send it to billing. The actual problem is the store's shipping rates, which belongs to orders.
+
+**How I changed the prompt to handle it:** _TODO — describe the change you made to the prompt and why._
+
 ### Reviewer notes
 
 **What I checked or changed in the code:** _TODO — describe what you checked or changed._
