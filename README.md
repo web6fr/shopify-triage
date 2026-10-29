@@ -90,6 +90,4 @@ The phrase is about a customer paying too much, with euro amounts, so a model co
 
 ### Reviewer notes
 
-**What Claude checked:** the graph has one node (`__start__ → triage → __end__`); `parse_reply` accepts `**Route:** Billing.` as `billing` and raises `InvalidRouteError` for `Route: shipping` and for a reply with no `Route:` line; `.env` is git-ignored; live runs on SUP-48197, SUP-48213 and SUP-48204 each matched their expected_route.
-
 **What I checked or changed in the code:** _TODO — describe what you checked or changed._
