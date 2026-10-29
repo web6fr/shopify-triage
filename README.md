@@ -86,7 +86,7 @@ SUP-48204  route=billing  expected=billing
 
 The phrase is about a customer paying too much, with euro amounts, so a model could read it as a charge or refund question and send it to billing. The actual problem is the store's shipping rates, which belongs to orders.
 
-**How I changed the prompt to handle it:** _TODO — describe the change you made to the prompt and why._
+**How I changed the prompt to handle it:** I didn't change it after the first run: the prompt I first wrote already defines `orders` to include "shipping rates and labels" and limits `billing` to the merchant's own Shopify bills, app charges and payouts, so a customer overpaying for postage reads as a shipping-rate problem, and Maria's ticket routed to `orders` as expected.
 
 ### Reviewer notes
 
