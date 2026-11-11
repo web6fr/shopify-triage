@@ -90,4 +90,4 @@ The phrase is about a customer paying too much, with euro amounts, so a model co
 
 ### Reviewer notes
 
-**What I checked or changed in the code:** I ran `.venv/bin/python triage.py SUP-48213` on Maria Sousa's ticket with `nvidia/nemotron-3.5-super-vl:free` (two earlier attempts on `google/gemma-4-31b-it:free` failed with a 429 rate limit and returned no route); the model returned route `orders`, which matches her expected_route `orders`.
+**What I checked or changed in the code:** I checked the route for Maria Sousa's ticket SUP-48213: the model returned `orders`, and her `expected_route` in the test set is `orders`, so they match. The first two runs never produced a wrong route; they produced no route at all, because `google/gemma-4-31b-it:free` failed both times with a 429 rate limit from its provider before answering. The one thing I changed was `OPENROUTER_MODEL` in `.env`, from `google/gemma-4-31b-it:free` to `nvidia/nemotron-3.5-super-vl:free`; I did not change `triage.py` or the prompt.
