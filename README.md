@@ -17,14 +17,39 @@ cp .env.example .env   # then set OPENROUTER_API_KEY (OPENROUTER_MODEL defaults 
 
 ## Triage
 
-`triage.py` builds a LangGraph graph with a single node, `triage`. It sends a ticket's `message_body` to the model named in `OPENROUTER_MODEL` (key from `OPENROUTER_API_KEY`, both read from `.env`), takes the route from the model's `Route:` line, and stops with an `InvalidRouteError` if the route is anything other than `billing` or `orders`.
+`triage.py` builds a LangGraph graph with a single node, `triage`. It sends a ticket's `message_body` to the model named in `OPENROUTER_MODEL` (key from `OPENROUTER_API_KEY`, both read from `.env`) and returns a Pydantic `RouteDecision`:
+
+```python
+class RouteDecision(BaseModel):
+    agent: Literal["billing", "orders"]
+    reason: str = Field(min_length=1)
+    confidence: float = Field(ge=0, le=1)
+```
+
+The model fills the decision through structured output (`with_structured_output(RouteDecision, method="function_calling")`). If it returns an agent other than `billing` or `orders`, an empty reason, a confidence outside 0–1, or no decision at all, the graph stops with an `InvalidRouteError`.
 
 ```bash
 python triage.py SUP-48213          # one or more ticket ids
 python triage.py                    # every ticket in the test set
 ```
 
-### Key part of the triage prompt
+### Route decision on Maria's ticket (SUP-48213, Maria Sousa)
+
+Model: `nvidia/nemotron-3.5-super-vl:free`
+
+```
+$ .venv/bin/python triage.py SUP-48213
+SUP-48213  agent=orders  expected=orders  confidence=0.97
+  Reason: The merchant reports that shipping rates are incorrectly applied to customer orders, with domestic Portugal and international European rates swapped across about 40 orders since Black Friday.
+```
+
+**Verify:** all three fields are filled. `agent` is `orders`, which matches expected_route `orders` ✅; `reason` is one sentence pointing to her shipping-rate complaint ✅; `confidence` is `0.97`, within 0–1 ✅.
+
+## Stage 1: two-line text reply
+
+The sections below record the first version of the triage node, which asked the model for two labelled lines (`Route:` and `Reason:`) and read the route from the text. The prompt's route definitions are unchanged in the current version; only the output format moved to `RouteDecision`.
+
+### Key part of the triage prompt (stage 1)
 
 ```
 Choose exactly one route:
@@ -38,7 +63,7 @@ Reason: <one sentence that points to what the merchant wrote>
 
 The full prompt is `TRIAGE_PROMPT` in `triage.py`.
 
-### Run on Maria's ticket (SUP-48213, Maria Sousa)
+### Run on Maria's ticket (SUP-48213, Maria Sousa), stage 1
 
 Model: `nvidia/nemotron-3.5-super-vl:free`
 

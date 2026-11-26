@@ -1,61 +1,54 @@
 """Single-node LangGraph graph that routes a Shopify merchant ticket to billing or orders."""
 
 import csv
-import re
 import sys
-from typing import TypedDict
+from typing import Literal, TypedDict
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
+from pydantic import BaseModel, Field, ValidationError
 
 from shopify_triage.llm import get_llm
 
-VALID_ROUTES = {"billing", "orders"}
-
 TRIAGE_PROMPT = """You triage support tickets written by Shopify merchants.
 
-Choose exactly one route:
+Choose exactly one agent:
 - billing: money owed to or by the merchant — Shopify bills and invoices, app or subscription charges, refunds of those charges, Shopify Payments payouts, fees and taxes on the merchant's account.
 - orders: the merchant's store operations — customer orders, fulfillment, shipping rates and labels, tracking, returns and order edits.
 
-Answer with exactly these two labelled lines and nothing else:
-Route: <billing or orders>
-Reason: <one sentence that points to what the merchant wrote>"""
+Return your decision with three fields:
+- agent: billing or orders
+- reason: one sentence that points to what the merchant wrote
+- confidence: a number from 0 to 1 for how sure you are of the agent"""
 
-ROUTE_LINE = re.compile(r"^[\s*_#>-]*route[\s*_]*:[\s*_]*(.+)$", re.IGNORECASE | re.MULTILINE)
-REASON_LINE = re.compile(r"^[\s*_#>-]*reason[\s*_]*:[\s*_]*(.+)$", re.IGNORECASE | re.MULTILINE)
+
+class RouteDecision(BaseModel):
+    """Which specialist agent should handle the ticket, and why."""
+
+    agent: Literal["billing", "orders"] = Field(description="The specialist agent that should handle the ticket.")
+    reason: str = Field(min_length=1, description="One sentence that points to what the merchant wrote.")
+    confidence: float = Field(ge=0, le=1, description="How sure the model is of the agent, from 0 to 1.")
 
 
 class TriageState(TypedDict, total=False):
     message_body: str
-    route: str
-    reason: str
+    decision: RouteDecision
 
 
 class InvalidRouteError(ValueError):
-    """The model replied with a route other than billing or orders."""
-
-
-def parse_reply(reply: str) -> tuple[str, str]:
-    route_match = ROUTE_LINE.search(reply)
-    if not route_match:
-        raise InvalidRouteError(f"Model reply has no 'Route:' line:\n{reply}")
-    route = route_match.group(1).strip().strip("*_`.\"' ").lower()
-    if route not in VALID_ROUTES:
-        raise InvalidRouteError(
-            f"Model returned route {route_match.group(1).strip()!r}; expected 'billing' or 'orders'.\nFull reply:\n{reply}"
-        )
-    reason_match = REASON_LINE.search(reply)
-    reason = reason_match.group(1).strip().strip("*_`") if reason_match else ""
-    return route, reason
+    """The model did not return a valid route decision (agent must be billing or orders)."""
 
 
 def triage(state: TriageState) -> TriageState:
-    reply = get_llm(temperature=0).invoke(
-        [SystemMessage(TRIAGE_PROMPT), HumanMessage(state["message_body"])]
-    )
-    route, reason = parse_reply(reply.content)
-    return {"route": route, "reason": reason}
+    llm = get_llm(temperature=0).with_structured_output(RouteDecision, method="function_calling")
+    try:
+        decision = llm.invoke([SystemMessage(TRIAGE_PROMPT), HumanMessage(state["message_body"])])
+    except (ValidationError, OutputParserException) as exc:
+        raise InvalidRouteError(f"Model returned an invalid route decision: {exc}") from exc
+    if decision is None:
+        raise InvalidRouteError("Model returned no route decision.")
+    return {"decision": decision}
 
 
 builder = StateGraph(TriageState)
@@ -71,6 +64,6 @@ if __name__ == "__main__":
     with open("shopify_merchant_tickets_test_set.csv", newline="", encoding="utf-8") as f:
         tickets = [t for t in csv.DictReader(f) if not wanted or t["ticket_id"] in wanted]
     for ticket in tickets:
-        result = graph.invoke({"message_body": ticket["message_body"]})
-        print(f"{ticket['ticket_id']}  route={result['route']}  expected={ticket['expected_route']}")
-        print(f"  Reason: {result['reason']}")
+        decision = graph.invoke({"message_body": ticket["message_body"]})["decision"]
+        print(f"{ticket['ticket_id']}  agent={decision.agent}  expected={ticket['expected_route']}  confidence={decision.confidence:.2f}")
+        print(f"  Reason: {decision.reason}")

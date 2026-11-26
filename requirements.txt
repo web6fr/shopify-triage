@@ -8,3 +8,6 @@ openai>=1.40
 
 # Loads OPENROUTER_API_KEY from .env
 python-dotenv>=1.0
+
+# Structured route decision from the triage node
+pydantic>=2
