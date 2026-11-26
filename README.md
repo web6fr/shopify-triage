@@ -45,6 +45,35 @@ SUP-48213  agent=orders  expected=orders  confidence=0.97
 
 **Verify:** all three fields are filled. `agent` is `orders`, which matches expected_route `orders` ✅; `reason` is one sentence pointing to her shipping-rate complaint ✅; `confidence` is `0.97`, within 0–1 ✅.
 
+## Mock Shopify tools
+
+`shopify_triage/shopify_tools.py` is a mock Shopify Admin API: plain Python functions over an in-memory `FIXTURES` store of four shops. Every tool call is appended to `CALL_LOG`, and `reset_store()` restores the fixtures and clears the log between tickets.
+
+It has 16 tools: **8 read** and **8 write**. A tool counts as a write if it changes the store. This was checked by running each tool on a freshly reset store and comparing `FIXTURES` before and after the call.
+
+| Tool | Read or write | Agent |
+|---|---|---|
+| `get_shop` | read | billing and orders |
+| `get_order` | read | orders |
+| `list_orders` | read | orders |
+| `list_order_transactions` | read | orders |
+| `calculate_refund` | read | orders |
+| `create_refund` | write | orders |
+| `get_delivery_profile` | read | orders |
+| `update_shipping_rate` | write | orders |
+| `recalculate_order_shipping` | write | orders |
+| `update_order_shipping_address` | write | orders |
+| `cancel_order` | write | orders |
+| `add_order_note` | write | orders |
+| `get_app_subscriptions` | read | billing |
+| `list_billing_charges` | read | billing |
+| `cancel_app_subscription` | write | billing |
+| `issue_billing_credit` | write | billing |
+
+The orders agent gets 6 read and 6 write tools; the billing agent gets 3 read and 2 write tools (`get_shop` is shared). `create_refund` refunds the buyer on an order, while `issue_billing_credit` credits the merchant's Shopify bill, so they belong to different agents. Two names can mislead: `calculate_refund` only previews a refund and is a read, while `recalculate_order_shipping` saves a new shipping price onto an existing order and is a write.
+
+`reset_store()` also changes the store, but it is used by the graph between tickets and is not given to either agent.
+
 ## Stage 1: two-line text reply
 
 The sections below record the first version of the triage node, which asked the model for two labelled lines (`Route:` and `Reason:`) and read the route from the text. The prompt's route definitions are unchanged in the current version; only the output format moved to `RouteDecision`.
